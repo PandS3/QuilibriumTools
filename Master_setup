@@ -27,15 +27,15 @@ echo ""
 
 # Prompt for user input with clear instructions
 echo "Liczba rdzeni:"
-read LICZBA_RDZENI
+read -p LICZBA_RDZENI
 
 echo
 echo "Liczba rdzeni kontrolująca cluster:"
-read LICZBA_RDZENI_CLUSTER
+read -p LICZBA_RDZENI_CLUSTER
 
 echo
 echo "Discord webhook:"
-read DISCORD_WEBHOOK
+read -p DISCORD_WEBHOOK
 
 # Calculate the default core range
 DEFAULT_CORES=$((LICZBA_RDZENI - LICZBA_RDZENI_CLUSTER))
