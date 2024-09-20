@@ -1,6 +1,8 @@
-#!/bin/bash -i
+#!/bin/bash
 
-# Display ASCII art and message
+# Clear the screen and display ASCII art and message
+clear
+
 cat << "EOF"
 
 #  JJJ$$$$$\JJJJJJJJJJJ$$\JJJJJJJJJJJJJJJJJJJJJJJJJJJ$$$$$$$\JJ$$\JJJJJJJJJJJJJJJJJ$$\JJJJJJJJJJJ
@@ -23,10 +25,17 @@ echo "                       ✨ JEBAC BIEDE ✨"
 echo "==========================================================================="
 echo ""
 
-# Prompt for user input
-read -p "Liczba rdzeni: " LICZBA_RDZENI
-read -p "Liczba rdzeni kontrolująca cluster: " LICZBA_RDZENI_CLUSTER
-read -p "Discord webhook: " DISCORD_WEBHOOK
+# Prompt for user input with clear instructions
+echo "Liczba rdzeni:"
+read LICZBA_RDZENI
+
+echo
+echo "Liczba rdzeni kontrolująca cluster:"
+read LICZBA_RDZENI_CLUSTER
+
+echo
+echo "Discord webhook:"
+read DISCORD_WEBHOOK
 
 # Calculate the default core range
 DEFAULT_CORES=$((LICZBA_RDZENI - LICZBA_RDZENI_CLUSTER))
@@ -35,12 +44,8 @@ if [ "$DEFAULT_CORES" -lt 1 ]; then
   exit 1
 fi
 
-# Generate the main script for controlling the master node
-cat <<EOL > $HOME/ceremonyclient/node/para.sh
-#!/bin/bash
-
 # Load configuration
-EXEC_PATH=\$HOME/ceremonyclient/node/node-1.4.21.1-linux-amd64
+EXEC_PATH=$HOME/ceremonyclient/node/node-1.4.21.1-linux-amd64
 WEBHOOK_URL="$DISCORD_WEBHOOK"
 CORES="1..$DEFAULT_CORES"
 CHECK_INTERVAL=60
@@ -48,19 +53,19 @@ CHECK_INTERVAL=60
 # Define a cleanup function to stop all processes
 cleanup() {
   echo "Caught termination signal. Killing all processes."
-  killall \$(basename "\$EXEC_PATH")
+  killall $(basename "$EXEC_PATH")
   exit 0
 }
 
 # Function to send Discord notifications
 send_discord_notification() {
-  local message="\$1"
-  local payload=\$(jq -n --arg content "\$message" '{content: \$content}')
+  local message="$1"
+  local payload=$(jq -n --arg content "$message" '{content: $content}')
 
   # Send the payload to the Discord webhook
-  curl -H "Content-Type: application/json" \\
-  -d "\$payload" \\
-  "\$WEBHOOK_URL"
+  curl -H "Content-Type: application/json" \
+  -d "$payload" \
+  "$WEBHOOK_URL"
 }
 
 # Trap SIGINT and SIGTERM signals and call cleanup function
@@ -69,16 +74,16 @@ trap cleanup SIGINT SIGTERM
 # Function to start all processes
 start_all_processes() {
   echo "Starting parent process on core 0"
-  \$EXEC_PATH &
+  $EXEC_PATH &
 
   # Capture the parent process PID
-  parent_pid=\$!
-  echo "Parent process PID: \$parent_pid"
+  parent_pid=$!
+  echo "Parent process PID: $parent_pid"
 
   # Start worker processes for the specified cores
-  for CORE in \$(eval echo {\$CORES}); do
-    echo "Starting worker process on core \$CORE"
-    taskset -c \$CORE \$EXEC_PATH --core \$CORE &
+  for CORE in $(eval echo {$CORES}); do
+    echo "Starting worker process on core $CORE"
+    taskset -c $CORE $EXEC_PATH --core $CORE &
   done
 
   echo "All processes started."
@@ -89,31 +94,13 @@ start_all_processes
 
 # Monitor the parent process and restart all processes if it stops
 while true; do
-  sleep \$CHECK_INTERVAL  # Check at the specified interval
+  sleep $CHECK_INTERVAL  # Check at the specified interval
 
   # Check if the parent process is running
-  if ! kill -0 \$parent_pid 2>/dev/null; then
+  if ! kill -0 $parent_pid 2>/dev/null; then
     echo "Parent process has stopped. Restarting all processes."
-    send_discord_notification "⚠️ Alert: Parent process has stopped. Restarting all processes at \$(date)."
+    send_discord_notification "⚠️ Alert: Parent process has stopped. Restarting all processes at $(date)."
     cleanup  # Cleanup existing processes
     start_all_processes  # Restart all processes
   fi
 done
-EOL
-
-# Make the master node script executable
-chmod +x $HOME/ceremonyclient/node/para.sh
-
-# Create a wrapper script in $HOME directory to open tmux session and run the main script
-cat <<EOL > $HOME/bieda.sh
-#!/bin/bash
-tmux new-session -d -s cluster "bash $HOME/ceremonyclient/node/para.sh"
-tmux attach -t cluster
-EOL
-
-# Make the wrapper script executable
-chmod +x $HOME/bieda.sh
-
-echo "Setup complete!"
-echo "Jebac biede. Jany krul."
-echo "Skrypt odpalasz ./bieda.sh pajacu"
