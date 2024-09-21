@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+
+import csv
+import os
+import sys
+
+# Path to the balance log file
+balance_log = os.path.expanduser("~/scripts/balance_log.csv")
+
+# Check if the file exists
+if not os.path.exists(balance_log):
+    print(f"Error: Balance log file not found at {balance_log}.")
+    sys.exit(1)
+
+# Read the last three balances from the log file
+balances = []
+
+try:
+    with open(balance_log, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip the header row if there is one
+
+        for row in reader:
+            # Convert the balance from comma to dot and then to float
+            balance = float(row[1].replace(',', '.'))
+            balances.append(balance)
+except Exception as e:
+    print(f"Error reading the balance log file: {e}")
+    sys.exit(1)
+
+# Check if we have at least 3 balance entries
+if len(balances) < 3:
+    print("Error: Not enough balance entries in the log file.")
+    sys.exit(1)
+
+# Take only the last three balances
+last_three_balances = balances[-3:]
+
+# Check if any of the last three balances is zero
+if any(balance == 0 for balance in last_three_balances):
+    print("Error: One of the last three balances is zero.")
+    sys.exit(1)
+
+# Calculate the hourly changes
+change1 = last_three_balances[1] - last_three_balances[0]
+change2 = last_three_balances[2] - last_three_balances[1]
+
+# Calculate the average hourly change
+average_change = (change1 + change2) / 2
+
+# Display the results
+print(f"Last three balances: {last_three_balances}")
+print(f"Hourly change 1: {change1:.2f}")
+print(f"Hourly change 2: {change2:.2f}")
+print(f"Average hourly change: {average_change:.2f}")
